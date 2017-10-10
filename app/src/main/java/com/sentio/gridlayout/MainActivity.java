@@ -43,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void setOnDragListener(final float deltaX, final float deltaY) {
         cellLayout.setOnDragListener(new View.OnDragListener() {
+            boolean didDrop = false;
+
             @Override
             public boolean onDrag(View view, DragEvent event) {
                 View target = (View) event.getLocalState();
@@ -55,19 +57,25 @@ public class MainActivity extends AppCompatActivity {
                     case DragEvent.ACTION_DRAG_EXITED:
                         break;
                     case DragEvent.ACTION_DRAG_LOCATION:
-                        cellLayout.clearFillViews();
-                        cellLayout.fillView(event.getX() - deltaX, event.getY() - deltaY,
+                        cellLayout.clearShadowView();
+                        cellLayout.createShadowView(event.getX() - deltaX, event.getY() - deltaY,
                                 ((CellLayout.LayoutParams) target.getLayoutParams()).copy());
                         break;
                     case DragEvent.ACTION_DROP:
+                        didDrop = true;
                         try {
-                            cellLayout.clearFillViews();
+                            cellLayout.clearShadowView();
                             cellLayout.move(target, event.getX() - deltaX, event.getY() - deltaY);
                         } catch (InvalidPosition invalidPosition) {
+                            cellLayout.addCellView(target);
                             Toast.makeText(MainActivity.this, "Invalid position", Toast.LENGTH_SHORT).show();
                         }
                         break;
                     case DragEvent.ACTION_DRAG_ENDED:
+                        if (!didDrop) {
+                            cellLayout.clearShadowView();
+                            cellLayout.addCellView(target);
+                        }
                         break;
                     default:
                         break;

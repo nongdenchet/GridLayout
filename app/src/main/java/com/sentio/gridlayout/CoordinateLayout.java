@@ -47,6 +47,7 @@ public class CoordinateLayout extends ViewGroup {
     }
 
     @Nullable
+    @SuppressWarnings("unused")
     public View getChildAt(int x, int y) {
         final int count = getChildCount();
         for (int i = 0; i < count; i++) {
@@ -100,13 +101,25 @@ public class CoordinateLayout extends ViewGroup {
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
     }
 
-    boolean isValid(CellLayout.LayoutParams layoutParams) {
+    @Nullable
+    View getViewOccupied(CellLayout.LayoutParams layoutParams) {
         for (int i = 0; i < getChildCount(); i++) {
             final View child = getChildAt(i);
             if (layoutParams.intersect((CellLayout.LayoutParams) child.getLayoutParams())) {
-                return false;
+                return child;
             }
         }
-        return true;
+        return null;
+    }
+
+    boolean isValid(CellLayout.LayoutParams layoutParams) {
+        if (layoutParams.cellX + layoutParams.cellHSpan > getNumberOfColumns()) {
+            return false;
+        }
+        if (layoutParams.cellY + layoutParams.cellVSpan > getNumberOfRows()) {
+            return false;
+        }
+        View occupiedView = getViewOccupied(layoutParams);
+        return occupiedView == null;
     }
 }

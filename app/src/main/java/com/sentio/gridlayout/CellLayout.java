@@ -9,14 +9,13 @@ import android.view.ViewGroup;
 
 @SuppressLint("ViewConstructor")
 public class CellLayout extends ViewGroup {
-    private final View[][] fillViews;
+    private View shadowView;
     private final CoordinateLayout coordinateLayout;
 
     public CellLayout(Context context, int width, int height, int estimateWidth, int estimateHeight) {
         super(context);
         this.coordinateLayout = new CoordinateLayout(context, width, height, estimateWidth, estimateHeight);
         this.addView(coordinateLayout);
-        this.fillViews = new View[coordinateLayout.getCellWidth()][coordinateLayout.getCellHeight()];
     }
 
     public boolean addViewToCellLayout(View child, int id, LayoutParams layoutParams) {
@@ -42,15 +41,38 @@ public class CellLayout extends ViewGroup {
         LayoutParams layoutParams = ((LayoutParams) view.getLayoutParams()).copy();
         layoutParams.cellX = (int) (x / coordinateLayout.getCellWidth());
         layoutParams.cellY = (int) (y / coordinateLayout.getCellHeight());
+        View occupiedView = coordinateLayout.getViewOccupied(layoutParams);
+
+        // Swap view
+        if (occupiedView != null && shouldSwap(layoutParams)) {
+            coordinateLayout.removeView(view);
+            coordinateLayout.removeView(occupiedView);
+            coordinateLayout.addView(occupiedView, ((LayoutParams) view.getLayoutParams()).copy());
+            coordinateLayout.addView(view, layoutParams);
+            return;
+        }
+
+        // Revert view
         if (!coordinateLayout.isValid(layoutParams)) {
-            coordinateLayout.addView(view);
             throw new InvalidPosition();
         }
-        view.setLayoutParams(layoutParams);
+
+        // Add view
+        coordinateLayout.removeView(view);
         coordinateLayout.addView(view, layoutParams);
     }
 
-    void fillView(float x, float y, LayoutParams layoutParams) {
+    @SuppressWarnings("SimplifiableIfStatement")
+    boolean shouldSwap(LayoutParams layoutParams) {
+        View occupiedView = coordinateLayout.getViewOccupied(layoutParams);
+        if (occupiedView == null) {
+            return false;
+        }
+        return ((CellLayout.LayoutParams) occupiedView.getLayoutParams()).getSize() == 1
+                && layoutParams.getSize() == 1;
+    }
+
+    void createShadowView(float x, float y, LayoutParams layoutParams) {
         int cellX = (int) (x / coordinateLayout.getCellWidth());
         int cellY = (int) (y / coordinateLayout.getCellHeight());
         View view = new View(getContext());
@@ -58,23 +80,23 @@ public class CellLayout extends ViewGroup {
         layoutParams.cellX = cellX;
         layoutParams.cellY = cellY;
         view.setLayoutParams(layoutParams);
-        fillViews[cellX][cellY] = view;
+        shadowView = view;
         coordinateLayout.addView(view, layoutParams);
     }
 
-    void clearFillViews() {
-        for (int i = 0; i < fillViews.length; i++) {
-            for (int j = 0; j < fillViews.length; j++) {
-                if (fillViews[i][j] != null) {
-                    coordinateLayout.removeView(fillViews[i][j]);
-                    fillViews[i][j] = null;
-                }
-            }
+    void clearShadowView() {
+        if (shadowView != null) {
+            coordinateLayout.removeView(shadowView);
+            shadowView = null;
         }
     }
 
     void removeCellView(View view) {
         coordinateLayout.removeView(view);
+    }
+
+    void addCellView(View target) {
+        coordinateLayout.addView(target);
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -147,6 +169,10 @@ public class CellLayout extends ViewGroup {
 
         private Rect toRect() {
             return new Rect(cellX, cellY, cellX + cellHSpan, cellY + cellVSpan);
+        }
+
+        private int getSize() {
+            return cellHSpan * cellVSpan;
         }
 
         public boolean intersect(LayoutParams layoutParams) {
